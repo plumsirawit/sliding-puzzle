@@ -22,7 +22,7 @@ class BoardState:
         return str(self.board)
 
     def copy(self):
-        return BoardState(self.board)
+        return BoardState(self.board.copy())
     
     def actions(self):
         out = []
@@ -38,7 +38,7 @@ class BoardState:
 
     def perform_action(self, k):
         if k not in self.actions():
-            return -10**9
+            raise ValueError('illegal action')
         (i, j) = self.hole
         (di, dj) = DISPLACEMENTS[k]
         (ii, jj) = (i+di, j+dj)

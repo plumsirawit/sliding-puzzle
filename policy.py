@@ -25,8 +25,12 @@ class Policy:
     def __init__(self):
         self.mlp = MLP(16, 4, 3, 20, nn.ReLU())
 
-    def run_policy(self, state_tensor):
+    def run_policy(self, state_tensor, allowed=None):
         logits = self.mlp(state_tensor)
+        if allowed is not None:
+            for i in range(4):
+                if i not in allowed:
+                    logits[i] = -torch.inf
         return Categorical(logits=logits)
 
     def get_loss(self, states, actions, weights):

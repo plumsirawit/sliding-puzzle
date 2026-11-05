@@ -30,7 +30,8 @@ class Trainer:
             if verbose:
                 print('[LOG] Starting Episode', len(batch_returns), 'with state', episode_states[-1])
             while not episode_states[-1].is_solved() and len(episode_states) < episode_limit:
-                cat = self.policy.run_policy(torch.as_tensor(episode_states[-1].board.flatten(), dtype=torch.float32))
+                allowed = episode_states[-1].actions()
+                cat = self.policy.run_policy(torch.as_tensor(episode_states[-1].board.flatten(), dtype=torch.float32), allowed)
                 action = cat.sample().item()
                 if verbose:
                     print('[LOG] Current state is')
