@@ -24,6 +24,7 @@ class Trainer:
         batch_returns = []
         batch_lengths = []
         batch_allowed_actions_masks = []
+        batch_success_count = 0
         while total_length < batch_size:
             episode_states = [self.sample_initial_state()]
             episode_actions = []
@@ -46,6 +47,8 @@ class Trainer:
                 episode_actions.append(action)
                 episode_rewards.append(reward)
                 episode_allowed_actions_masks.append(mask)
+            if episode_states[-1].is_solved():
+                batch_success_count += 1
             episode_total_rewards = sum(episode_rewards)
             batch_returns.append(episode_total_rewards)
             episode_length = len(episode_rewards)
@@ -59,8 +62,7 @@ class Trainer:
         batch_loss = self.policy.get_loss(batch_states, batch_actions, batch_weights, batch_allowed_actions_masks)
         batch_loss.backward()
         self.optimizer.step()
-        if verbose:
-            print('[LOG] Batch end; loss: %.3f \t return: %.3f \t ep_len: %.3f' %
-                (batch_loss, np.mean(batch_returns), np.mean(batch_lengths)))
+        print('[LOG] Batch end; loss: %.3f \t return: %.3f \t ep_len: %.3f \t success rate: %.3f' %
+            (batch_loss, np.mean(batch_returns), np.mean(batch_lengths), batch_success_count / len(batch_returns)))
         return batch_loss, batch_returns, batch_lengths
             
