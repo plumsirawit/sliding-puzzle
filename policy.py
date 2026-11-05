@@ -25,17 +25,17 @@ class Policy:
     def __init__(self):
         self.mlp = MLP(16, 4, 3, 20, nn.ReLU())
 
-    def run_policy(self, state_tensor, allowed=None):
+    def run_policy(self, state_tensor, mask=None):
         logits = self.mlp(state_tensor)
-        if allowed is not None:
-            for i in range(4):
-                if i not in allowed:
-                    logits[i] = -torch.inf
-        return Categorical(logits=logits)
+        probs = torch.softmax(logits, -1)
+        if mask is not None:
+            probs = probs * mask
+        return Categorical(probs)
 
-    def get_loss(self, states, actions, weights):
+    def get_loss(self, states, actions, weights, allowed_actions_masks):
         states_tensor = torch.as_tensor(np.array([state.board.flatten() for state in states]), dtype=torch.float32)
         actions_tensor = torch.as_tensor(actions, dtype=torch.float32)
         weights_tensor = torch.as_tensor(weights, dtype=torch.float32)
-        logp = self.run_policy(states_tensor).log_prob(actions_tensor)
+        masks_tensor = torch.as_tensor(np.array(allowed_actions_masks), dtype=torch.float32)
+        logp = self.run_policy(states_tensor, masks_tensor).log_prob(actions_tensor)
         return -(logp * weights_tensor).mean()

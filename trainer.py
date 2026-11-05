@@ -23,15 +23,18 @@ class Trainer:
         batch_weights = []
         batch_returns = []
         batch_lengths = []
+        batch_allowed_actions_masks = []
         while total_length < batch_size:
             episode_states = [self.sample_initial_state()]
             episode_actions = []
             episode_rewards = []
+            episode_allowed_actions_masks = []
             if verbose:
                 print('[LOG] Starting Episode', len(batch_returns), 'with state', episode_states[-1])
             while not episode_states[-1].is_solved() and len(episode_states) < episode_limit:
                 allowed = episode_states[-1].actions()
-                cat = self.policy.run_policy(torch.as_tensor(episode_states[-1].board.flatten(), dtype=torch.float32), allowed)
+                mask = [0 if i not in allowed else 1 for i in range(4)]
+                cat = self.policy.run_policy(torch.as_tensor(episode_states[-1].board.flatten(), dtype=torch.float32), torch.as_tensor(mask, dtype=torch.float32))
                 action = cat.sample().item()
                 if verbose:
                     print('[LOG] Current state is')
@@ -42,16 +45,18 @@ class Trainer:
                 episode_states.append(state)
                 episode_actions.append(action)
                 episode_rewards.append(reward)
+                episode_allowed_actions_masks.append(mask)
             episode_total_rewards = sum(episode_rewards)
             batch_returns.append(episode_total_rewards)
             episode_length = len(episode_rewards)
             batch_lengths.append(episode_length)
             batch_weights += [episode_total_rewards] * episode_length
             total_length += episode_length
-            batch_states += episode_states[1:]
+            batch_states += episode_states[:-1]
             batch_actions += episode_actions
+            batch_allowed_actions_masks += episode_allowed_actions_masks
         self.optimizer.zero_grad()
-        batch_loss = self.policy.get_loss(batch_states, batch_actions, batch_weights)
+        batch_loss = self.policy.get_loss(batch_states, batch_actions, batch_weights, batch_allowed_actions_masks)
         batch_loss.backward()
         self.optimizer.step()
         if verbose:
