@@ -13,7 +13,7 @@ def validate(trainer, state, episode_limit=1000, verbose=False):
         action = cat.sample().item()
         if verbose:
             print('[LOG] Current state is')
-            print(state[-1])
+            print(state)
             print('[LOG] Sampled action is', 'ULDR'[action])
         reward = state.perform_action(action)
         total_reward += reward
@@ -32,8 +32,8 @@ def main(args):
             TEST_BOARDS.append(board)
     trainer = Trainer(args.lr)
     for epoch in range(1, 251):
-        trainer.train_one_epoch(1000, 100, args.verbose)
-        if epoch % 3 == 0:
+        trainer.train_one_epoch(5000, 100, args.verbose)
+        if epoch % 10 == 0:
             trainer.MAX_SCAFFOLD_DIST += 1
         if epoch % 50 == 0:
             # validate against the freezed testcases
