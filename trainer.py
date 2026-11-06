@@ -1,31 +1,18 @@
 from policy import Policy
-from board import BoardState
+from gen import sample_board
 import numpy as np
 import torch
 import random
 
 class Trainer:
-    def __init__(self, lr):
+    def __init__(self, lr, max_scaffold_dist=10):
         self.policy = Policy()
         self.optimizer = torch.optim.Adam(self.policy.mlp.parameters(), lr=lr)
+        self.MAX_SCAFFOLD_DIST = max_scaffold_dist
         random.seed(42)
 
     def sample_initial_state(self):
-        MAX_SCAFFOLD_DIST = 10
-        state = BoardState(np.array([
-            [1, 2, 3, 4],
-            [5, 6, 7, 8],
-            [9, 10, 11, 12],
-            [13, 14, 15, 0]
-        ]))
-        chosen_dist = random.randint(0, MAX_SCAFFOLD_DIST)
-        for i in range(chosen_dist):
-            k = random.choice(state.actions())
-            state.perform_action(k)
-        while state.is_solved():
-            k = random.choice(state.actions())
-            state.perform_action(k)
-        return state
+        return sample_board(self.MAX_SCAFFOLD_DIST)
 
     def reward_to_go(self, rewards):
         n = len(rewards)
