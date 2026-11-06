@@ -2,8 +2,8 @@ from trainer import Trainer
 
 def main(args):
     trainer = Trainer(args.lr)
-    for epoch in range(1, 101):
-        trainer.train_one_epoch(80000, 10000, args.verbose)
+    for epoch in range(1, 251):
+        trainer.train_one_epoch(1000, 100, args.verbose)
 
 
 if __name__ == "__main__":

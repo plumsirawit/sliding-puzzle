@@ -2,19 +2,37 @@ from policy import Policy
 from board import BoardState
 import numpy as np
 import torch
+import random
 
 class Trainer:
     def __init__(self, lr):
         self.policy = Policy()
         self.optimizer = torch.optim.Adam(self.policy.mlp.parameters(), lr=lr)
+        random.seed(42)
 
     def sample_initial_state(self):
-        return BoardState(np.array([
-            [1, 2, 8, 3],
-            [5, 7, 10, 4],
-            [9, 6, 11, 0],
-            [13, 14, 15, 12]
+        MAX_SCAFFOLD_DIST = 10
+        state = BoardState(np.array([
+            [1, 2, 3, 4],
+            [5, 6, 7, 8],
+            [9, 10, 11, 12],
+            [13, 14, 15, 0]
         ]))
+        chosen_dist = random.randint(0, MAX_SCAFFOLD_DIST)
+        for i in range(chosen_dist):
+            k = random.choice(state.actions())
+            state.perform_action(k)
+        while state.is_solved():
+            k = random.choice(state.actions())
+            state.perform_action(k)
+        return state
+
+    def reward_to_go(self, rewards):
+        n = len(rewards)
+        reverse_quicksum = np.zeros_like(rewards)
+        for i in reversed(range(n)):
+            reverse_quicksum[i] = rewards[i] + (reverse_quicksum[i+1] if i+1 < n else 0)
+        return reverse_quicksum
 
     def train_one_epoch(self, batch_size, episode_limit, verbose=False):
         total_length = 0
@@ -53,7 +71,7 @@ class Trainer:
             batch_returns.append(episode_total_rewards)
             episode_length = len(episode_rewards)
             batch_lengths.append(episode_length)
-            batch_weights += [episode_total_rewards] * episode_length
+            batch_weights += list(self.reward_to_go(episode_rewards))
             total_length += episode_length
             batch_states += episode_states[:-1]
             batch_actions += episode_actions
@@ -63,6 +81,6 @@ class Trainer:
         batch_loss.backward()
         self.optimizer.step()
         print('[LOG] Batch end; loss: %.3f \t return: %.3f \t ep_len: %.3f \t success rate: %.3f' %
-            (batch_loss, np.mean(batch_returns), np.mean(batch_lengths), batch_success_count / len(batch_returns)))
+            (batch_loss, np.mean(batch_returns), np.mean(batch_lengths), batch_success_count / len(batch_returns)), flush=True)
         return batch_loss, batch_returns, batch_lengths
             
