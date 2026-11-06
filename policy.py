@@ -23,7 +23,7 @@ class MLP(nn.Module):
 
 class Policy:
     def __init__(self):
-        self.mlp = MLP(16, 4, 3, 20, nn.ReLU())
+        self.mlp = MLP(256, 4, 3, 300, nn.ReLU())
 
     def run_policy(self, state_tensor, mask=None):
         logits = self.mlp(state_tensor)
@@ -33,7 +33,7 @@ class Policy:
         return Categorical(probs)
 
     def get_loss(self, states, actions, weights, allowed_actions_masks):
-        states_tensor = torch.as_tensor(np.array([state.board.flatten() for state in states]), dtype=torch.float32)
+        states_tensor = torch.cat([state.to_tensor().reshape(1,-1) for state in states], dim=0)
         actions_tensor = torch.as_tensor(actions, dtype=torch.float32)
         weights_tensor = torch.as_tensor(weights, dtype=torch.float32)
         masks_tensor = torch.as_tensor(np.array(allowed_actions_masks), dtype=torch.float32)

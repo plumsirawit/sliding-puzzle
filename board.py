@@ -1,4 +1,5 @@
 import numpy as np
+import torch
 
 DISPLACEMENTS = [(-1, 0), (0, -1), (1, 0), (0, 1)]
 
@@ -73,3 +74,6 @@ class BoardState:
             [9, 10, 11, 12],
             [13, 14, 15, 0]
         ])).all()
+
+    def to_tensor(self):
+        return torch.tensor([1 if self.board[i//4][i%4] == j else 0 for i in range(16) for j in range(16)], dtype=torch.float32)

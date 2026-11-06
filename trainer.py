@@ -53,7 +53,7 @@ class Trainer:
             while not episode_states[-1].is_solved() and len(episode_states) < episode_limit:
                 allowed = episode_states[-1].actions()
                 mask = [0 if i not in allowed else 1 for i in range(4)]
-                cat = self.policy.run_policy(torch.as_tensor(episode_states[-1].board.flatten(), dtype=torch.float32), torch.as_tensor(mask, dtype=torch.float32))
+                cat = self.policy.run_policy(episode_states[-1].to_tensor(), torch.as_tensor(mask, dtype=torch.float32))
                 action = cat.sample().item()
                 if verbose:
                     print('[LOG] Current state is')
