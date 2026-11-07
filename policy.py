@@ -22,8 +22,9 @@ class MLP(nn.Module):
         return self.model(x)
 
 class Policy:
-    def __init__(self):
+    def __init__(self, lr):
         self.mlp = MLP(256, 4, 3, 300, nn.ReLU())
+        self.optimizer = torch.optim.Adam(self.mlp.parameters(), lr=lr)
 
     def run_policy(self, state_tensor, mask=None):
         logits = self.mlp(state_tensor)
@@ -32,10 +33,19 @@ class Policy:
             probs = probs * mask
         return Categorical(probs)
 
-    def get_loss(self, states, actions, weights, allowed_actions_masks):
+    def get_loss(self, states, actions, advantages, allowed_actions_masks):
         states_tensor = torch.cat([state.to_tensor().reshape(1,-1) for state in states], dim=0)
         actions_tensor = torch.as_tensor(actions, dtype=torch.float32)
-        weights_tensor = torch.as_tensor(weights, dtype=torch.float32)
+        advantages_tensor = torch.as_tensor(advantages, dtype=torch.float32)
         masks_tensor = torch.as_tensor(np.array(allowed_actions_masks), dtype=torch.float32)
         logp = self.run_policy(states_tensor, masks_tensor).log_prob(actions_tensor)
-        return -(logp * weights_tensor).mean()
+        return -(logp * advantages_tensor).mean()
+
+class Critic:
+    def __init__(self):
+        self.mlp = MLP(256, 1, 3, 128, nn.ReLU())
+        self.optimizer = torch.optim.Adam(self.mlp.parameters(), lr=1e-3)
+    
+    def run(self, state_tensor):
+        out = self.mlp(state_tensor)
+        return out

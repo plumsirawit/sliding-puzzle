@@ -1,4 +1,4 @@
-from policy import Policy
+from policy import Policy, Critic
 from gen import sample_board
 import numpy as np
 import torch
@@ -6,8 +6,8 @@ import random
 
 class Trainer:
     def __init__(self, lr, max_scaffold_dist=1):
-        self.policy = Policy()
-        self.optimizer = torch.optim.Adam(self.policy.mlp.parameters(), lr=lr)
+        self.policy = Policy(lr)
+        self.critic = Critic()
         self.MAX_SCAFFOLD_DIST = max_scaffold_dist
         random.seed(42)
 
@@ -63,11 +63,33 @@ class Trainer:
             batch_states += episode_states[:-1]
             batch_actions += episode_actions
             batch_allowed_actions_masks += episode_allowed_actions_masks
-        self.optimizer.zero_grad()
-        batch_loss = self.policy.get_loss(batch_states, batch_actions, batch_weights, batch_allowed_actions_masks)
-        batch_loss.backward()
-        self.optimizer.step()
+        states = torch.stack([s.to_tensor() for s in batch_states])
+        returns = torch.as_tensor(batch_weights, dtype=torch.float32)
+
+        # Compute advantages BEFORE fitting the critic on this batch.
+        # no_grad prevents actor training from changing the critic.
+        with torch.no_grad():
+            predicted_returns = self.critic.run(states).squeeze(-1)  # [N]
+            advantages = returns - predicted_returns
+
+            # Optional, commonly useful for keeping update scales manageable.
+            advantages = (
+                (advantages - advantages.mean())
+                / (advantages.std(unbiased=False) + 1e-8)
+            )
+        
+        self.policy.optimizer.zero_grad()
+        actor_loss = self.policy.get_loss(batch_states, batch_actions, advantages.tolist(), batch_allowed_actions_masks)
+        actor_loss.backward()
+        self.policy.optimizer.step()
+        for _ in range(10):
+            values = self.critic.run(states).squeeze(-1)
+            critic_loss = torch.nn.functional.mse_loss(values, returns)
+            self.critic.optimizer.zero_grad()
+            critic_loss.backward()
+            self.critic.optimizer.step()
+
         print('[LOG] Batch end; loss: %.3f \t return: %.3f \t ep_len: %.3f \t success rate: %.3f' %
-            (batch_loss, np.mean(batch_returns), np.mean(batch_lengths), batch_success_count / len(batch_returns)), flush=True)
-        return batch_loss, batch_returns, batch_lengths
+            (actor_loss, np.mean(batch_returns), np.mean(batch_lengths), batch_success_count / len(batch_returns)), flush=True)
+        return actor_loss, batch_returns, batch_lengths
             
