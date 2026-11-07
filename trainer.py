@@ -5,7 +5,7 @@ import torch
 import random
 
 class Trainer:
-    def __init__(self, lr, max_scaffold_dist=10):
+    def __init__(self, lr, max_scaffold_dist=1):
         self.policy = Policy()
         self.optimizer = torch.optim.Adam(self.policy.mlp.parameters(), lr=lr)
         self.MAX_SCAFFOLD_DIST = max_scaffold_dist
