@@ -41,7 +41,7 @@ def main(args):
                 (is_solved, turns, reward) = validate(trainer, board, 100)
                 if is_solved:
                     count_solved += 1
-            if count_solved >= 98:
+            if count_solved >= 95:
                 trainer.MAX_SCAFFOLD_DIST += 1
                 print('[LOG] MAX_SCAFFOLD_DIST increased to', trainer.MAX_SCAFFOLD_DIST)
         if epoch % 50 == 0:

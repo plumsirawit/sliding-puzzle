@@ -39,7 +39,7 @@ def sample_board(walklen, verbose=False):
     global bfs_generator
     if bfs_generator.walklen < walklen:
         bfs_generator = BFSGenerator(max(bfs_generator.walklen+1, walklen))
-    state = random.choice([x for xs in bfs_generator.BUCKETS[1:walklen+1] for x in xs])
+    state = random.choice([x for xs in bfs_generator.BUCKETS[1:walklen+1] for x in xs]).copy()
     if verbose:
         print('[LOG] Board Generated:')
         print(state)

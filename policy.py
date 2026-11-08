@@ -23,7 +23,7 @@ class MLP(nn.Module):
 
 class Policy:
     def __init__(self, lr):
-        self.mlp = MLP(256, 4, 3, 300, nn.ReLU())
+        self.mlp = MLP(256, 4, 3, 500, nn.ReLU())
         self.optimizer = torch.optim.Adam(self.mlp.parameters(), lr=lr)
 
     def run_policy(self, state_tensor, mask=None):
@@ -43,8 +43,8 @@ class Policy:
 
 class Critic:
     def __init__(self):
-        self.mlp = MLP(256, 1, 3, 128, nn.ReLU())
-        self.optimizer = torch.optim.Adam(self.mlp.parameters(), lr=1e-3)
+        self.mlp = MLP(256, 1, 3, 500, nn.ReLU())
+        self.optimizer = torch.optim.Adam(self.mlp.parameters(), lr=3e-4)
     
     def run(self, state_tensor):
         out = self.mlp(state_tensor)

@@ -37,7 +37,7 @@ class Trainer:
             episode_allowed_actions_masks = []
             if verbose:
                 print('[LOG] Starting Episode', len(batch_returns), 'with state', episode_states[-1])
-            while not episode_states[-1].is_solved() and len(episode_states) < episode_limit:
+            while not episode_states[-1].is_solved() and len(episode_states) <= episode_limit:
                 allowed = episode_states[-1].actions()
                 mask = [0 if i not in allowed else 1 for i in range(4)]
                 cat = self.policy.run_policy(episode_states[-1].to_tensor(), torch.as_tensor(mask, dtype=torch.float32))
@@ -89,7 +89,16 @@ class Trainer:
             critic_loss.backward()
             self.critic.optimizer.step()
 
-        print('[LOG] Batch end; loss: %.3f \t return: %.3f \t ep_len: %.3f \t success rate: %.3f' %
-            (actor_loss, np.mean(batch_returns), np.mean(batch_lengths), batch_success_count / len(batch_returns)), flush=True)
+        masks = torch.as_tensor(np.array(batch_allowed_actions_masks), dtype=torch.float32)
+        with torch.no_grad():
+            values = self.critic.run(states).squeeze(-1)
+            critic_mse = torch.nn.functional.mse_loss(values, returns)
+            policy_entropy = self.policy.run_policy(states, masks).entropy().mean()
+
+        print('[LOG] Batch end; loss: %.3f \t return: %.3f \t ep_len: %.3f \t success rate: %.3f'
+              ' \t scaffold_dist: %d \t critic_mse: %.3f \t policy_entropy: %.3f' %
+            (actor_loss.item(), np.mean(batch_returns), np.mean(batch_lengths),
+             batch_success_count / len(batch_returns), self.MAX_SCAFFOLD_DIST,
+             critic_mse.item(), policy_entropy.item()), flush=True)
         return actor_loss, batch_returns, batch_lengths
             
