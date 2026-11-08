@@ -33,20 +33,40 @@ class BFSGenerator:
         for (k, v) in dists.items():
             self.BUCKETS[v].append(BoardState(k))
 
-bfs_generator = BFSGenerator()
+    def sample_board(self, walklen, verbose=False):
+        if self.walklen < walklen:
+            self.__init__(max(self.walklen+1, walklen))
+        state = random.choice([x for xs in self.BUCKETS[1:walklen+1] for x in xs]).copy()
+        if verbose:
+            print('[LOG] Board Generated:')
+            print(state)
+        return state
 
-def sample_board(walklen, verbose=False):
-    global bfs_generator
-    if bfs_generator.walklen < walklen:
-        bfs_generator = BFSGenerator(max(bfs_generator.walklen+1, walklen))
-    state = random.choice([x for xs in bfs_generator.BUCKETS[1:walklen+1] for x in xs]).copy()
-    if verbose:
-        print('[LOG] Board Generated:')
-        print(state)
-    return state
+class RandomWalkGenerator:
+    def __init__(self):
+        pass
+
+    def sample_board(self, walklen, verbose=False):
+        state = BoardState()
+        for _ in range(walklen):
+            k = random.choice(state.actions())
+            state.perform_action(k)
+        if verbose:
+            print('[LOG] Board Generated:')
+            print(state)
+        return state
+
+bfs_generator = BFSGenerator()
+random_walk_generator = RandomWalkGenerator()
 
 def main(args):
-    state = sample_board(args.walklen, args.verbose)
+    global bfs_generator
+    if args.gen not in ['bfs', 'random_walk']:
+        raise ValueError('unknown gen algorithm')
+    if args.gen == 'bfs':
+        state = bfs_generator.sample_board(args.walklen, args.verbose)
+    elif args.gen == 'random_walk':
+        state = random_walk_generator.sample_board(args.walklen, args.verbose)
     outst = '\n'.join([' '.join(list(map(str, state.board[i]))) for i in range(4)])
     if len(args.out) == 0:
         print(outst)
@@ -60,6 +80,7 @@ if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument('--verbose', action='store_true')
+    parser.add_argument('--gen', type=str, default='bfs')
     parser.add_argument('--walklen', type=int, default=10)
     parser.add_argument('--out', type=str, default='')
     args = parser.parse_args()

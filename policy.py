@@ -2,7 +2,6 @@ from board import BoardState
 import torch
 from torch import nn
 from torch.distributions.categorical import Categorical
-import numpy as np
 
 class MLP(nn.Module):
     def __init__(self, nInput, nOutput, nLayer, nHidden, act_fn):
@@ -29,10 +28,9 @@ class Policy:
 
     def run_policy(self, state_tensor, mask=None):
         logits = self.mlp(state_tensor)
-        probs = torch.softmax(logits, -1)
         if mask is not None:
-            probs = probs * mask
-        return Categorical(probs)
+            logits = logits.masked_fill(mask == 0, float('-inf'))
+        return Categorical(logits=logits)
 
     @torch.inference_mode()
     def sample_action(self, state_tensor, mask):
@@ -40,15 +38,9 @@ class Policy:
         probs = torch.softmax(logits, dim=-1)
         return torch.multinomial(probs, 1).item()
 
-    def get_loss(self, states, actions, advantages, allowed_actions_masks):
-        states_tensor = torch.stack([state.to_tensor() for state in states]).to(self.device)
-        actions_tensor = torch.as_tensor(actions, dtype=torch.long, device=self.device)
-        advantages_tensor = torch.as_tensor(advantages, dtype=torch.float32, device=self.device)
-        masks_tensor = torch.as_tensor(
-            np.array(allowed_actions_masks), dtype=torch.float32, device=self.device
-        )
-        logp = self.run_policy(states_tensor, masks_tensor).log_prob(actions_tensor)
-        return -(logp * advantages_tensor).mean()
+    def evaluate_actions(self, states, actions, masks):
+        distribution = self.run_policy(states, masks)
+        return distribution.log_prob(actions), distribution.entropy()
 
 
 class Critic:
