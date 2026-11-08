@@ -10,8 +10,10 @@ def validate(trainer, state, episode_limit=1000, verbose=False):
     while not state.is_solved() and turns < episode_limit:
         allowed = state.actions()
         mask = [0 if i not in allowed else 1 for i in range(4)]
-        cat = trainer.policy.run_policy(state.to_tensor(), torch.as_tensor(mask, dtype=torch.float32))
-        action = cat.sample().item()
+        action = trainer.policy.sample_action(
+            state.to_tensor().to(trainer.device),
+            torch.as_tensor(mask, dtype=torch.float32, device=trainer.device),
+        )
         if verbose:
             print('[LOG] Current state is')
             print(state)
@@ -31,7 +33,12 @@ def main(args):
             print('[DBG]', blist)
             board = BoardState(np.array(blist))
             TEST_BOARDS.append(board)
-    trainer = Trainer(args.lr)
+    xpu_available = hasattr(torch, 'xpu') and torch.xpu.is_available()
+    if args.device == 'xpu' and not xpu_available:
+        raise RuntimeError('--device xpu was requested, but this PyTorch installation has no available XPU')
+    device = torch.device(args.device)
+    print('[LOG] Using device:', device)
+    trainer = Trainer(args.lr, device=device)
     for epoch in range(1, 1001):
         trainer.train_one_epoch(5000, 100, args.verbose)
         if epoch % 10 == 0:
@@ -59,11 +66,11 @@ def main(args):
 
 
 if __name__ == "__main__":
-    device = torch.device("xpu" if torch.xpu.is_available() else "cpu")
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument('--verbose', action='store_true')
     parser.add_argument('--lr', type=float, default=1e-2)
+    parser.add_argument('--device', choices=('cpu', 'xpu'), default='cpu')
     args = parser.parse_args()
     print('\nUsing simplest formulation of policy gradient.\n')
     main(args)

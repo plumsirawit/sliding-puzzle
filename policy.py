@@ -22,9 +22,10 @@ class MLP(nn.Module):
         return self.model(x)
 
 class Policy:
-    def __init__(self, lr):
-        self.mlp = MLP(256, 4, 3, 500, nn.ReLU())
-        self.optimizer = torch.optim.Adam(self.mlp.parameters(), lr=lr)
+    def __init__(self, lr, device):
+        self.device = torch.device(device)
+        self.mlp = MLP(256, 4, 3, 500, nn.ReLU()).to(self.device)
+        self.optimizer = torch.optim.Adam(self.mlp.parameters(), lr=lr, foreach=False)
 
     def run_policy(self, state_tensor, mask=None):
         logits = self.mlp(state_tensor)
@@ -33,18 +34,28 @@ class Policy:
             probs = probs * mask
         return Categorical(probs)
 
+    @torch.inference_mode()
+    def sample_action(self, state_tensor, mask):
+        logits = self.mlp(state_tensor).masked_fill(mask == 0, float('-inf'))
+        probs = torch.softmax(logits, dim=-1)
+        return torch.multinomial(probs, 1).item()
+
     def get_loss(self, states, actions, advantages, allowed_actions_masks):
-        states_tensor = torch.cat([state.to_tensor().reshape(1,-1) for state in states], dim=0)
-        actions_tensor = torch.as_tensor(actions, dtype=torch.float32)
-        advantages_tensor = torch.as_tensor(advantages, dtype=torch.float32)
-        masks_tensor = torch.as_tensor(np.array(allowed_actions_masks), dtype=torch.float32)
+        states_tensor = torch.stack([state.to_tensor() for state in states]).to(self.device)
+        actions_tensor = torch.as_tensor(actions, dtype=torch.long, device=self.device)
+        advantages_tensor = torch.as_tensor(advantages, dtype=torch.float32, device=self.device)
+        masks_tensor = torch.as_tensor(
+            np.array(allowed_actions_masks), dtype=torch.float32, device=self.device
+        )
         logp = self.run_policy(states_tensor, masks_tensor).log_prob(actions_tensor)
         return -(logp * advantages_tensor).mean()
 
+
 class Critic:
-    def __init__(self):
-        self.mlp = MLP(256, 1, 3, 500, nn.ReLU())
-        self.optimizer = torch.optim.Adam(self.mlp.parameters(), lr=3e-4)
+    def __init__(self, device):
+        self.device = torch.device(device)
+        self.mlp = MLP(256, 1, 3, 500, nn.ReLU()).to(self.device)
+        self.optimizer = torch.optim.Adam(self.mlp.parameters(), lr=3e-4, foreach=False)
     
     def run(self, state_tensor):
         out = self.mlp(state_tensor)

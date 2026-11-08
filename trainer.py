@@ -5,9 +5,10 @@ import torch
 import random
 
 class Trainer:
-    def __init__(self, lr, max_scaffold_dist=1):
-        self.policy = Policy(lr)
-        self.critic = Critic()
+    def __init__(self, lr, max_scaffold_dist=1, device="cpu"):
+        self.device = torch.device(device)
+        self.policy = Policy(lr, self.device)
+        self.critic = Critic(self.device)
         self.MAX_SCAFFOLD_DIST = max_scaffold_dist
         random.seed(42)
 
@@ -40,8 +41,10 @@ class Trainer:
             while not episode_states[-1].is_solved() and len(episode_states) <= episode_limit:
                 allowed = episode_states[-1].actions()
                 mask = [0 if i not in allowed else 1 for i in range(4)]
-                cat = self.policy.run_policy(episode_states[-1].to_tensor(), torch.as_tensor(mask, dtype=torch.float32))
-                action = cat.sample().item()
+                action = self.policy.sample_action(
+                    episode_states[-1].to_tensor().to(self.device),
+                    torch.as_tensor(mask, dtype=torch.float32, device=self.device),
+                )
                 if verbose:
                     print('[LOG] Current state is')
                     print(episode_states[-1])
@@ -63,8 +66,8 @@ class Trainer:
             batch_states += episode_states[:-1]
             batch_actions += episode_actions
             batch_allowed_actions_masks += episode_allowed_actions_masks
-        states = torch.stack([s.to_tensor() for s in batch_states])
-        returns = torch.as_tensor(batch_weights, dtype=torch.float32)
+        states = torch.stack([s.to_tensor() for s in batch_states]).to(self.device)
+        returns = torch.as_tensor(batch_weights, dtype=torch.float32, device=self.device)
 
         # Compute advantages BEFORE fitting the critic on this batch.
         # no_grad prevents actor training from changing the critic.
@@ -79,7 +82,9 @@ class Trainer:
             )
         
         self.policy.optimizer.zero_grad()
-        actor_loss = self.policy.get_loss(batch_states, batch_actions, advantages.tolist(), batch_allowed_actions_masks)
+        actor_loss = self.policy.get_loss(
+            batch_states, batch_actions, advantages, batch_allowed_actions_masks
+        )
         actor_loss.backward()
         self.policy.optimizer.step()
         for _ in range(10):
@@ -89,7 +94,9 @@ class Trainer:
             critic_loss.backward()
             self.critic.optimizer.step()
 
-        masks = torch.as_tensor(np.array(batch_allowed_actions_masks), dtype=torch.float32)
+        masks = torch.as_tensor(
+            np.array(batch_allowed_actions_masks), dtype=torch.float32, device=self.device
+        )
         with torch.no_grad():
             values = self.critic.run(states).squeeze(-1)
             critic_mse = torch.nn.functional.mse_loss(values, returns)

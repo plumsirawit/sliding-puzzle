@@ -2,6 +2,7 @@ import numpy as np
 import torch
 
 DISPLACEMENTS = [(-1, 0), (0, -1), (1, 0), (0, 1)]
+ONE_HOT = np.eye(16, dtype=np.float32)
 
 class BoardState:
     def __init__(self, b=None):
@@ -99,4 +100,4 @@ class BoardState:
         ])).all()
 
     def to_tensor(self):
-        return torch.tensor([1 if self.board[i//4][i%4] == j else 0 for i in range(16) for j in range(16)], dtype=torch.float32)
+        return torch.from_numpy(ONE_HOT[self.board.reshape(-1)].reshape(-1))
