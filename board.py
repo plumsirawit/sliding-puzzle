@@ -13,6 +13,21 @@ class BoardState:
                 [13, 14, 15, 0]
             ])
             self.hole = (3, 3)
+        elif isinstance(b, int):
+            # from hash
+            self.board = np.array([
+                [0, 0, 0, 0],
+                [0, 0, 0, 0],
+                [0, 0, 0, 0],
+                [0, 0, 0, 0],
+            ])
+            for i in range(16):
+                self.board[i // 4][i % 4] = b % 16
+                b //= 16
+            for i in range(4):
+                for j in range(4):
+                    if self.board[i][j] == 0:
+                        self.hole = (i, j)
         else:
             self.board = b
             for i in range(4):
@@ -23,6 +38,14 @@ class BoardState:
 
     def __str__(self):
         return str(self.board)
+
+    def hash(self):
+        # Don't incoroporate into __hash__ (yet)
+        # because this is still mutable (especially by perform_action).
+        ret = 0
+        for i in range(16):
+            ret += int(self.board[i // 4][i % 4]) * (16 ** i)
+        return ret
 
     def copy(self):
         return BoardState(self.board.copy())

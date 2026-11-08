@@ -24,7 +24,7 @@ def validate(trainer, state, episode_limit=1000, verbose=False):
 def main(args):
     print('[LOG] Starting main loop. verbose=%s. lr=%f.' % (str(args.verbose), args.lr))
     TEST_BOARDS = []
-    for tc in range(1, 11):
+    for tc in range(1, 14):
         fname = 'data/' + str(tc).zfill(4) + '.txt'
         with open(fname) as f:
             blist = list(map(lambda line : list(map(int, line.split())), f.readlines()))
@@ -41,7 +41,7 @@ def main(args):
                 (is_solved, turns, reward) = validate(trainer, board, 100)
                 if is_solved:
                     count_solved += 1
-            if count_solved >= 95:
+            if count_solved >= 98:
                 trainer.MAX_SCAFFOLD_DIST += 1
                 print('[LOG] MAX_SCAFFOLD_DIST increased to', trainer.MAX_SCAFFOLD_DIST)
         if epoch % 50 == 0:
@@ -55,7 +55,7 @@ def main(args):
                     solved_count += 1
                 total_turns += turns
                 total_reward += reward
-            print('[LOG] epoch %d valid. solved: %d/10 \t avg turns: %f \t avg reward: %f' % (epoch, solved_count, total_turns/10, total_reward/10))
+            print('[LOG] epoch %d valid. solved: %d/13 \t avg turns: %f \t avg reward: %f' % (epoch, solved_count, total_turns/13, total_reward/13))
 
 
 if __name__ == "__main__":
