@@ -1,5 +1,5 @@
 from policy import Policy, Critic
-from gen import bfs_generator
+from gen import bfs_generator, random_walk_generator
 import numpy as np
 import torch
 import random
@@ -44,7 +44,10 @@ class Trainer:
         random.seed(42)
 
     def sample_initial_state(self):
-        return bfs_generator.sample_board(self.MAX_SCAFFOLD_DIST)
+        if self.MAX_SCAFFOLD_DIST <= 10:
+            return bfs_generator.sample_board(self.MAX_SCAFFOLD_DIST)
+        else:
+            return random_walk_generator.sample_board(2*self.MAX_SCAFFOLD_DIST)
 
     def train_one_epoch(self, batch_size, episode_limit, verbose=False):
         if batch_size <= 0 or episode_limit <= 0:

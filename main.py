@@ -50,19 +50,18 @@ def main(args):
     )
     for epoch in range(1, 1001):
         trainer.train_one_epoch(5000, 100, args.verbose)
-        if epoch % 3 == 0:
-            count_solved = 0
-            for rep in range(100):
-                if trainer.MAX_SCAFFOLD_DIST <= 10:
-                    board = bfs_generator.sample_board(trainer.MAX_SCAFFOLD_DIST)
-                else:
-                    board = random_walk_generator.sample_board(trainer.MAX_SCAFFOLD_DIST**2)
-                (is_solved, turns, reward) = validate(trainer, board, 100)
-                if is_solved:
-                    count_solved += 1
-            if count_solved >= 95:
-                trainer.MAX_SCAFFOLD_DIST += 1
-                print('[LOG] MAX_SCAFFOLD_DIST increased to', trainer.MAX_SCAFFOLD_DIST)
+        count_solved = 0
+        for rep in range(100):
+            if trainer.MAX_SCAFFOLD_DIST <= 10:
+                board = bfs_generator.sample_board(trainer.MAX_SCAFFOLD_DIST)
+            else:
+                board = random_walk_generator.sample_board(2*trainer.MAX_SCAFFOLD_DIST)
+            (is_solved, turns, reward) = validate(trainer, board, 100)
+            if is_solved:
+                count_solved += 1
+        if count_solved >= 95:
+            trainer.MAX_SCAFFOLD_DIST += 1
+            print('[LOG] MAX_SCAFFOLD_DIST increased to', trainer.MAX_SCAFFOLD_DIST)
         if epoch % 50 == 0:
             # validate against the freezed testcases
             solved_count = 0
