@@ -3,6 +3,7 @@ from board import BoardState
 import torch
 import numpy as np
 from gen import bfs_generator, random_walk_generator
+from pathlib import Path
 
 def validate(trainer, state, episode_limit=1000, verbose=False):
     turns = 0
@@ -48,7 +49,12 @@ def main(args):
         minibatch_size=args.minibatch_size,
         entropy_coef=args.entropy_coef,
     )
-    for epoch in range(1, 1001):
+    start_epoch = 1
+    if args.resume:
+        start_epoch = trainer.load_checkpoint(args.resume) + 1
+        print('[LOG] Resumed checkpoint', args.resume, 'at epoch', start_epoch - 1)
+
+    for epoch in range(start_epoch, 1001):
         trainer.train_one_epoch(5000, 100, args.verbose)
         count_solved = 0
         for rep in range(100):
@@ -74,6 +80,9 @@ def main(args):
                 total_turns += turns
                 total_reward += reward
             print('[LOG] epoch %d valid. solved: %d/20 \t avg turns: %f \t avg reward: %f' % (epoch, solved_count, total_turns/20, total_reward/20))
+            checkpoint_path = Path(args.checkpoint_dir) / f'checkpoint_epoch_{epoch:04d}.pt'
+            trainer.save_checkpoint(checkpoint_path, epoch)
+            print('[LOG] Saved checkpoint to', checkpoint_path)
 
 
 if __name__ == "__main__":
@@ -88,6 +97,10 @@ if __name__ == "__main__":
     parser.add_argument('--ppo-epochs', type=int, default=4)
     parser.add_argument('--minibatch-size', type=int, default=256)
     parser.add_argument('--entropy-coef', type=float, default=0.01)
+    parser.add_argument('--resume', type=str, default=None,
+                        help='Resume training from a checkpoint file')
+    parser.add_argument('--checkpoint-dir', type=str, default='checkpoints',
+                        help='Directory for periodic checkpoints')
     args = parser.parse_args()
     print('\nUsing Proximal Policy Optimization (PPO).\n')
     main(args)

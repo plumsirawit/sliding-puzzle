@@ -3,6 +3,7 @@ from gen import bfs_generator, random_walk_generator
 import numpy as np
 import torch
 import random
+from pathlib import Path
 
 class Trainer:
     def __init__(
@@ -48,6 +49,89 @@ class Trainer:
             return bfs_generator.sample_board(self.MAX_SCAFFOLD_DIST)
         else:
             return random_walk_generator.sample_board(2*self.MAX_SCAFFOLD_DIST)
+
+    def save_checkpoint(self, path, epoch):
+        checkpoint_path = Path(path)
+        checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
+        temporary_path = checkpoint_path.with_name(checkpoint_path.name + ".tmp")
+
+        numpy_rng = np.random.get_state()
+        checkpoint = {
+            "format_version": 1,
+            "epoch": epoch,
+            "max_scaffold_dist": self.MAX_SCAFFOLD_DIST,
+            "trainer_config": {
+                "gamma": self.gamma,
+                "gae_lambda": self.gae_lambda,
+                "clip_epsilon": self.clip_epsilon,
+                "ppo_epochs": self.ppo_epochs,
+                "minibatch_size": self.minibatch_size,
+                "entropy_coef": self.entropy_coef,
+                "value_coef": self.value_coef,
+                "max_grad_norm": self.max_grad_norm,
+            },
+            "actor_state_dict": self.policy.mlp.state_dict(),
+            "critic_state_dict": self.critic.mlp.state_dict(),
+            "actor_optimizer_state_dict": self.policy.optimizer.state_dict(),
+            "critic_optimizer_state_dict": self.critic.optimizer.state_dict(),
+            "rng_state": {
+                "python": random.getstate(),
+                "numpy": (
+                    numpy_rng[0],
+                    numpy_rng[1].tolist(),
+                    numpy_rng[2],
+                    numpy_rng[3],
+                    numpy_rng[4],
+                ),
+                "torch_cpu": torch.get_rng_state(),
+                "torch_xpu": (
+                    torch.xpu.get_rng_state_all()
+                    if self.device.type == "xpu"
+                    else None
+                ),
+            },
+        }
+
+        try:
+            torch.save(checkpoint, temporary_path)
+            temporary_path.replace(checkpoint_path)
+        except Exception:
+            temporary_path.unlink(missing_ok=True)
+            raise
+
+    def load_checkpoint(self, path):
+        checkpoint = torch.load(path, map_location=self.device, weights_only=True)
+        if checkpoint.get("format_version") != 1:
+            raise ValueError(f"Unsupported checkpoint format in {path}")
+
+        self.policy.mlp.load_state_dict(checkpoint["actor_state_dict"])
+        self.critic.mlp.load_state_dict(checkpoint["critic_state_dict"])
+        self.policy.optimizer.load_state_dict(checkpoint["actor_optimizer_state_dict"])
+        self.critic.optimizer.load_state_dict(checkpoint["critic_optimizer_state_dict"])
+        self.MAX_SCAFFOLD_DIST = checkpoint["max_scaffold_dist"]
+
+        for name, value in checkpoint["trainer_config"].items():
+            setattr(self, name, value)
+
+        rng_state = checkpoint["rng_state"]
+        random.setstate(rng_state["python"])
+        numpy_rng = rng_state["numpy"]
+        np.random.set_state(
+            (
+                numpy_rng[0],
+                np.asarray(numpy_rng[1], dtype=np.uint32),
+                numpy_rng[2],
+                numpy_rng[3],
+                numpy_rng[4],
+            )
+        )
+        torch.set_rng_state(rng_state["torch_cpu"].cpu())
+        if self.device.type == "xpu" and rng_state["torch_xpu"] is not None:
+            torch.xpu.set_rng_state_all(
+                [state.cpu() for state in rng_state["torch_xpu"]]
+            )
+
+        return checkpoint["epoch"]
 
     def train_one_epoch(self, batch_size, episode_limit, verbose=False):
         if batch_size <= 0 or episode_limit <= 0:
